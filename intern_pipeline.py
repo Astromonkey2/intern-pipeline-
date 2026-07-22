@@ -91,13 +91,27 @@ EXCLUDE_UPSTREAM_CATEGORIES = {"quant", "quantitative finance", "product", "prod
 # (e.g. Etched's "GTM Intern" / "Talent Intern" arriving under a hardware company).
 EXCLUDE_TITLE = [
     "sales", "marketing", "recruit", "talent", "gtm", "go-to-market", "finance",
-    "accounting", "human resource", " hr ", "legal", "counsel", "social work",
+    "accounting", "human resource", "hr", "legal", "counsel", "social work",
     "nurse", "clinical", "teacher", "tutor", "customer success", "business develop",
-    "supply chain", "recruiting", "operations intern", "core ops",
-    "communications", "public relations", "recruiter", "people ops",
+    "supply chain", "operations intern", "core ops",
+    "communication", "public relations", "people ops",
     "phd",              # Abhi is an undergrad — PhD-gated research roles aren't open to him
-    "mba", "law ", "medical",
+    "mba", "medical",
 ]
+
+def _prefix_re(terms):
+    """Match at a word start, but allow suffixes: 'recruit' catches recruiting AND
+    recruiter, 'counsel' catches counseling. Without the left boundary, 'hr' would
+    fire on 'thread' and 'intern' on 'international'."""
+    return re.compile(r'(?<![a-z0-9])(?:' + "|".join(re.escape(t) for t in terms) + r')')
+
+def _word_re(terms):
+    """Both boundaries. Substring matching starred Armstrong and Charm as 'arm',
+    Intelligent as 'intel', Metabolon as 'meta', and Amdocs as 'amd'."""
+    return re.compile(r'(?<![a-z0-9])(?:' + "|".join(re.escape(t) for t in terms)
+                      + r')(?![a-z0-9])')
+
+_EXCLUDE_RE = _prefix_re(EXCLUDE_TITLE)
 
 # ATS tokens are careers-portal slugs, not company names: "tenstorrentuniversity",
 # "asteraearlycareer2026". Strip the recruiting cruft so the digest reads properly
@@ -120,6 +134,12 @@ PRIORITY_COMPANIES = [
     "apple", "intel", "broadcom", "micron", "sambanova", "ambarella", "arm",
     "google", "meta", "microsoft", "tesla", "anthropic", "openai", "waymo",
 ]
+
+_PRIORITY_RE = _word_re(PRIORITY_COMPANIES)
+
+# GitHub hard-caps an issue body at 65,536 chars; a role line runs ~155. 300 keeps us
+# well clear. Overflow is NOT marked seen, so it simply lands in tomorrow's digest.
+MAX_ROLES_PER_ISSUE = 300
 
 MUST_CONTAIN_INTERN = True   # Abhi is a student, not a new grad — internships only.
 MAX_BOARD_WORKERS = 16       # parallel ATS polls; be a decent citizen
@@ -266,7 +286,7 @@ def classify(role):
     t = role["title"].lower()
     if MUST_CONTAIN_INTERN and "intern" not in t:
         return None
-    if any(x in t for x in EXCLUDE_TITLE):
+    if _EXCLUDE_RE.search(t):
         return None
     if role.get("upstream_category", "").lower() in EXCLUDE_UPSTREAM_CATEGORIES:
         return None
@@ -322,8 +342,7 @@ def dedupe(roles):
     return out
 
 def is_priority(role):
-    c = role["company"].lower()
-    return any(p in c for p in PRIORITY_COMPANIES)
+    return bool(_PRIORITY_RE.search(role["company"].lower()))
 
 # ────────────────────────────── DIGEST ──────────────────────────────
 
@@ -335,7 +354,26 @@ def _line_parts(r):
     star = "⭐ " if is_priority(r) else ""
     return star, loc
 
-def build_digest_md(by_cat):
+def cap_for_issue(by_cat):
+    """Trim to MAX_ROLES_PER_ISSUE, keeping category order (most relevant first) and
+    starred companies within each. Returns the trimmed map, the ids that actually made
+    it into the body, and the overflow count. Only the included ids get staged — the
+    rest stay unseen on purpose so they resurface tomorrow rather than being lost."""
+    total = sum(len(v) for v in by_cat.values())
+    if total <= MAX_ROLES_PER_ISSUE:
+        return by_cat, {r["id"] for v in by_cat.values() for r in v}, 0
+    out, ids, budget = {}, set(), MAX_ROLES_PER_ISSUE
+    for name, _ in CATEGORIES:
+        if budget <= 0:
+            break
+        roles = _sorted(by_cat.get(name, []))[:budget]
+        if roles:
+            out[name] = roles
+            ids |= {r["id"] for r in roles}
+            budget -= len(roles)
+    return out, ids, total - len(ids)
+
+def build_digest_md(by_cat, overflow=0):
     now = datetime.now(timezone.utc).astimezone().strftime("%a %b %d, %I:%M %p")
     total = sum(len(v) for v in by_cat.values())
     lines = [f"**{total} new** · _{now}_", ""]
@@ -350,6 +388,9 @@ def build_digest_md(by_cat):
         lines.append("")
     if not total:
         lines.append("No new roles this run.")
+    if overflow:
+        lines += [f"> **{overflow} more** didn't fit GitHub's issue size limit. "
+                  f"They're still marked unseen and will lead tomorrow's digest.", ""]
     lines += ["---", "⭐ = a company you're tracking. Boards say a role went live — you "
               "still apply on the company site. Log it in your tracker."]
     return "\n".join(lines)
@@ -429,6 +470,10 @@ def main():
     ap.add_argument("--commit-seen", action="store_true",
                     help="promote pending_ids.json into seen_ids.json after delivery succeeded")
     ap.add_argument("--no-ats", action="store_true", help="skip ATS polling (fast, repos only)")
+    ap.add_argument("--seed", action="store_true",
+                    help="one-time backfill: write digest.html as a browsable backlog and "
+                         "mark everything currently live as seen, so the next real digest "
+                         "contains only genuinely new roles")
     args = ap.parse_args()
 
     if args.commit_seen:
@@ -469,11 +514,22 @@ def main():
         print("wrote digest.html (dry run — nothing sent, seen-list untouched)")
         return
 
+    if args.seed:
+        open("digest.html", "w", encoding="utf-8").write(build_digest(by_cat))
+        save_seen(seen | fresh_ids)
+        print(f"seeded {len(fresh_ids)} ids as seen; the full backlog is in digest.html "
+              f"for you to browse. The next digest will only carry new roles.")
+        return
+
     if args.issue:
         if not total:
             print("nothing new — no issue to file")
             return
-        open("digest.md", "w", encoding="utf-8").write(build_digest_md(by_cat))
+        by_cat, fresh_ids, overflow = cap_for_issue(by_cat)
+        if overflow:
+            print(f"  capped at {MAX_ROLES_PER_ISSUE} roles for this issue; "
+                  f"{overflow} deferred to the next run (deliberately left unseen)")
+        open("digest.md", "w", encoding="utf-8").write(build_digest_md(by_cat, overflow))
         json.dump(sorted(fresh_ids), open(PENDING_FILE, "w", encoding="utf-8"))
         print(f"staged digest.md + {len(fresh_ids)} pending ids "
               f"(not yet seen — caller must confirm delivery with --commit-seen)")
