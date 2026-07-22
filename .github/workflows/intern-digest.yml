@@ -68,18 +68,26 @@ jobs:
             --repo "$GITHUB_REPOSITORY"
           echo "filed=true" >> "$GITHUB_OUTPUT"
 
-      # Runs only if the issue was actually created. Without this the ids stay
-      # pending and the next run retries them, rather than losing them silently.
-      - name: Persist seen_ids.json
-        if: ${{ steps.file_issue.outputs.filed == 'true' }}
+      # Runs on every non-dry run, not just ones that filed an issue: even a quiet day
+      # discovers new ATS boards, and those must be kept. The --commit-seen promotion
+      # is what's gated on the issue actually existing — if it failed, the ids stay
+      # pending and the next run retries them rather than losing them silently.
+      - name: Persist state
+        if: ${{ !inputs.dry_run }}
         run: |
-          python intern_pipeline.py --commit-seen
+          if [ "${{ steps.file_issue.outputs.filed }}" = "true" ]; then
+            python intern_pipeline.py --commit-seen
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add seen_ids.json
+          # ats_boards.json is the discovered-board memory — it only ever grows, and
+          # persisting it is what makes each run's reach wider than the last.
+          for f in seen_ids.json ats_boards.json; do
+            if [ -f "$f" ]; then git add "$f"; fi
+          done
           if git diff --cached --quiet; then
-            echo "seen_ids.json unchanged — nothing to commit"
+            echo "no state changes — nothing to commit"
           else
-            git commit -m "chore: update seen_ids.json [skip ci]"
+            git commit -m "chore: update digest state [skip ci]"
             git push
           fi
