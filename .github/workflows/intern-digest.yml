@@ -1,0 +1,70 @@
+name: Internship digest
+
+on:
+  schedule:
+    # 13:00 UTC daily ≈ 9:00am ET / 6:00am PT. GitHub may delay cron by a few
+    # minutes under load — that's fine, this isn't time-critical.
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build the digest but send no email and record nothing as seen"
+        type: boolean
+        default: false
+
+# Needed so the job can push the updated seen_ids.json back to the repo.
+permissions:
+  contents: write
+
+# Never let two runs race on seen_ids.json.
+concurrency:
+  group: intern-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # No pip install step: intern_pipeline.py is stdlib-only by design.
+
+      - name: Run pipeline
+        env:
+          SMTP_HOST: smtp.gmail.com
+          SMTP_PORT: "587"
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          DIGEST_TO: ${{ secrets.DIGEST_TO }}
+        run: python intern_pipeline.py ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Upload digest.html (dry run only)
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest
+          path: digest.html
+          if-no-files-found: warn
+
+      # Runners are ephemeral. Without this, seen_ids.json is lost every run and
+      # the next digest re-emails the entire backlog.
+      - name: Persist seen_ids.json
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if [ ! -f seen_ids.json ]; then
+            echo "no seen_ids.json produced (nothing new was sent) — nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seen_ids.json
+          if git diff --cached --quiet; then
+            echo "seen_ids.json unchanged — nothing to commit"
+          else
+            git commit -m "chore: update seen_ids.json [skip ci]"
+            git push
+          fi

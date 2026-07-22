@@ -1,0 +1,6 @@
+# Dry-run output — regenerated every run, never worth versioning.
+digest.html
+
+__pycache__/
+*.pyc
+.env
