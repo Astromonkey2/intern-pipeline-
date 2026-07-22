@@ -40,49 +40,99 @@ from email.mime.multipart import MIMEMultipart
 # These are SEEDS, not the boundary of the search. Their real job is to keep
 # feeding new ATS boards into ats_boards.json. Add repos freely.
 
-LISTING_SOURCES = [
-    "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/.github/scripts/listings.json",
-    "https://raw.githubusercontent.com/vanshb03/Summer2027-Internships/dev/.github/scripts/listings.json",
-]
+SOURCES_BY_ROLE_TYPE = {
+    "intern": [
+        "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/dev/.github/scripts/listings.json",
+        "https://raw.githubusercontent.com/vanshb03/Summer2027-Internships/dev/.github/scripts/listings.json",
+    ],
+    "new_grad": [
+        "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json",
+    ],
+}
+
+# ────────────────────────────── CONFIG FILE ──────────────────────────────
+# Everything a human would want to change lives in config.json, so it can be edited
+# from github.com without cloning. Missing keys fall back to these defaults.
+
+CONFIG_FILE = "config.json"
+
+DEFAULT_CONFIG = {
+    "role_type": "intern",
+    "location": {"mode": "us_only", "extra_allow": [], "extra_block": []},
+    "categories": {},                 # empty = all on
+    "priority_companies": None,       # None = use the built-in list below
+    "extra_exclude_titles": [],
+    "max_roles_per_issue": 300,
+}
+
+def load_config():
+    cfg = json.loads(json.dumps(DEFAULT_CONFIG))
+    if os.path.exists(CONFIG_FILE):
+        try:
+            user = json.load(open(CONFIG_FILE, encoding="utf-8"))
+        except Exception as e:
+            print(f"  ! config.json is not valid JSON ({e}) — using defaults", file=sys.stderr)
+            return cfg
+        for k, v in user.items():
+            if k.startswith("_") or k not in cfg:   # "_comment" keys are documentation
+                continue
+            if isinstance(cfg[k], dict) and isinstance(v, dict):
+                cfg[k].update(v)
+            else:
+                cfg[k] = v
+    return cfg
+
+CFG = load_config()
+
+def active_sources():
+    rt = CFG["role_type"]
+    keys = ["intern", "new_grad"] if rt == "both" else [rt]
+    return [u for k in keys for u in SOURCES_BY_ROLE_TYPE.get(k, [])]
 
 # ────────────────────────────── RELEVANCE ──────────────────────────────
 # Categories are ordered: the first one whose keywords hit wins, so put the
 # most specific first. Retitle/reorder these to reshape the digest.
 
 CATEGORIES = [
-    ("🔬 Silicon · RTL & Verification", [
+    ("silicon", "🔬 Silicon · RTL & Verification", [
         "rtl", "asic", "fpga", "verilog", "systemverilog", "vlsi", "physical design",
         "design verification", "dft", "synthesis", "static timing", "tapeout", "layout",
         "analog", "mixed signal", "circuit", "semiconductor", "chip design", "silicon",
         "pd intern", "dv intern", "sta intern",   # the abbreviations boards actually use
     ]),
-    ("🧠 Computer Architecture & Accelerators", [
+    ("architecture", "🧠 Computer Architecture & Accelerators", [
         "architecture", "architect", "microarchitect", "soc", "accelerator", "gpu",
         "npu", "tpu", "cpu", "performance model", "chip simulation", "chipsim",
         "memory subsystem", "interconnect", "computer engineering",
     ]),
-    ("⚡ Embedded & Firmware", [
+    ("embedded", "⚡ Embedded & Firmware", [
         "embedded", "firmware", "bare metal", "rtos", "device driver", "driver",
         "bsp", "board bring", "hardware software", "bringup", "bring-up",
     ]),
-    ("🛠️ ML Systems · Compilers & Kernels", [
+    ("ml_systems", "🛠️ ML Systems · Compilers & Kernels", [
         "compiler", "kernel", "cuda", "triton", "mlir", "llvm", "inference",
         "runtime", "hpc", "high performance", "distributed training", "ml systems",
         "systems software", "operating system", "performance engineer",
     ]),
-    ("🔌 Other hardware & systems", [
+    ("hardware_other", "🔌 Other hardware & systems", [
         "hardware engineer", "electrical engineer", "power electronics", "pcb",
         "signal integrity", "test engineer", "validation", "thermal", "rf ",
         "radio frequency", "sensor", "optical", "photonic", "failure analysis",
     ]),
-    ("💻 Software & ML (general)", [
+    ("software_general", "💻 Software & ML (general)", [
         "software", "machine learning", "deep learning", "artificial intelligence",
         "computer vision", "robotics", "backend", "platform", "infrastructure",
         "systems", "data engineer", "research engineer", "autonomy",
     ]),
 ]
 
-HARDWARE_FALLBACK_CATEGORY = "🔌 Other hardware & systems"
+HARDWARE_FALLBACK_KEY = "hardware_other"
+CAT_LABEL = {k: label for k, label, _ in CATEGORIES}
+
+def active_categories():
+    """Categories the config leaves switched on, in declaration order."""
+    on = CFG["categories"]
+    return [(k, lbl, kw) for k, lbl, kw in CATEGORIES if on.get(k, True)]
 
 # Upstream `category` values that are never relevant, whatever the title says.
 EXCLUDE_UPSTREAM_CATEGORIES = {"quant", "quantitative finance", "product", "product management"}
@@ -111,7 +161,78 @@ def _word_re(terms):
     return re.compile(r'(?<![a-z0-9])(?:' + "|".join(re.escape(t) for t in terms)
                       + r')(?![a-z0-9])')
 
-_EXCLUDE_RE = _prefix_re(EXCLUDE_TITLE)
+_EXCLUDE_RE = _prefix_re(EXCLUDE_TITLE + list(CFG["extra_exclude_titles"]))
+
+# Roles that exist but aren't open to someone leaving school — only consulted when
+# role_type lets non-intern titles through.
+SENIOR_MARKERS = ["senior", "sr.", "sr ", "staff", "principal", "lead", "manager",
+                  "director", "head of", "vp ", "vice president", "ii", "iii", "iv"]
+_SENIOR_RE = _word_re(SENIOR_MARKERS)
+
+def role_type_ok(title):
+    t = title.lower()
+    is_intern = "intern" in t or "co-op" in t or "coop" in t
+    rt = CFG["role_type"]
+    if rt == "intern":
+        return is_intern
+    if rt == "new_grad":
+        return not is_intern and not _SENIOR_RE.search(t)
+    return is_intern or not _SENIOR_RE.search(t)      # "both"
+
+# ────────────────────────────── LOCATION ──────────────────────────────
+# Deliberately asymmetric: a positive US signal wins, a positive non-US signal loses,
+# and anything unrecognised is KEPT. Dropping a real US role is far worse than letting
+# one foreign posting through, and location strings are wildly inconsistent
+# ("SF", "Austin, Texas, United States", "North America", "").
+
+US_STATES = [
+    "al","ak","az","ar","ca","co","ct","de","fl","ga","hi","id","il","in","ia","ks",
+    "ky","la","me","md","ma","mi","mn","ms","mo","mt","ne","nv","nh","nj","nm","ny",
+    "nc","nd","oh","ok","or","pa","ri","sc","sd","tn","tx","ut","vt","va","wa","wv",
+    "wi","wy","dc",
+]
+US_WORDS = [
+    "united states", "usa", "u.s.", "us", "remote", "north america", "nationwide",
+    "california", "texas", "washington", "new york", "massachusetts", "colorado",
+    "oregon", "arizona", "georgia", "illinois", "michigan", "minnesota", "florida",
+    "north carolina", "pennsylvania", "ohio", "utah", "virginia", "maryland",
+    "san francisco", "bay area", "silicon valley", "san jose", "santa clara",
+    "palo alto", "sunnyvale", "mountain view", "cupertino", "seattle", "redmond",
+    "bellevue", "austin", "dallas", "houston", "boston", "cambridge, ma", "nyc",
+    "new jersey", "chicago", "denver", "boulder", "atlanta", "phoenix", "portland",
+    "san diego", "los angeles", "pittsburgh", "raleigh", "durham", "ann arbor", "sf",
+]
+NON_US_WORDS = [
+    "canada", "toronto", "vancouver", "montreal", "ottawa", "waterloo", "calgary",
+    "india", "bangalore", "bengaluru", "hyderabad", "pune", "chennai", "noida",
+    "gurgaon", "gurugram", "mumbai", "delhi", "united kingdom", "england", "london",
+    "scotland", "edinburgh", "ireland", "dublin", "germany", "munich", "berlin",
+    "france", "paris", "netherlands", "amsterdam", "spain", "barcelona", "madrid",
+    "poland", "warsaw", "krakow", "romania", "bucharest", "hungary", "budapest",
+    "czech", "prague", "serbia", "belgrade", "ukraine", "israel", "tel aviv",
+    "china", "shanghai", "beijing", "shenzhen", "taiwan", "taipei", "japan", "tokyo",
+    "korea", "seoul", "singapore", "australia", "sydney", "melbourne", "brazil",
+    "mexico", "guadalajara", "switzerland", "zurich", "sweden", "stockholm",
+    "norway", "denmark", "copenhagen", "finland", "portugal", "lisbon", "italy",
+    "milan", "greece", "turkey", "istanbul", "egypt", "cairo", "dubai", "abu dhabi",
+    "vietnam", "philippines", "manila", "thailand", "malaysia", "indonesia",
+    "new zealand", "south africa", "argentina", "chile", "colombia", "costa rica",
+]
+
+_US_RE = _word_re(US_STATES + US_WORDS + list(CFG["location"]["extra_allow"]))
+_NON_US_RE = _word_re(NON_US_WORDS + list(CFG["location"]["extra_block"]))
+
+def location_ok(locations):
+    if CFG["location"]["mode"] != "us_only":
+        return True
+    blob = " ; ".join(l.lower() for l in (locations or []) if l).strip()
+    if not blob:
+        return True                       # no location data — don't guess
+    if _US_RE.search(blob):
+        return True
+    if _NON_US_RE.search(blob):
+        return False
+    return True                           # unrecognised — keep
 
 # ATS tokens are careers-portal slugs, not company names: "tenstorrentuniversity",
 # "asteraearlycareer2026". Strip the recruiting cruft so the digest reads properly
@@ -135,13 +256,11 @@ PRIORITY_COMPANIES = [
     "google", "meta", "microsoft", "tesla", "anthropic", "openai", "waymo",
 ]
 
-_PRIORITY_RE = _word_re(PRIORITY_COMPANIES)
+_PRIORITY_RE = _word_re(CFG["priority_companies"] or PRIORITY_COMPANIES)
 
 # GitHub hard-caps an issue body at 65,536 chars; a role line runs ~155. 300 keeps us
 # well clear. Overflow is NOT marked seen, so it simply lands in tomorrow's digest.
-MAX_ROLES_PER_ISSUE = 300
-
-MUST_CONTAIN_INTERN = True   # Abhi is a student, not a new grad — internships only.
+MAX_ROLES_PER_ISSUE = CFG["max_roles_per_issue"]
 MAX_BOARD_WORKERS = 16       # parallel ATS polls; be a decent citizen
 
 SEEN_FILE = "seen_ids.json"
@@ -284,7 +403,9 @@ def term_is_current(terms):
 def classify(role):
     """Return a category name, or None to drop the role."""
     t = role["title"].lower()
-    if MUST_CONTAIN_INTERN and "intern" not in t:
+    if not role_type_ok(role["title"]):
+        return None
+    if not location_ok(role.get("locations")):
         return None
     if _EXCLUDE_RE.search(t):
         return None
@@ -292,14 +413,16 @@ def classify(role):
         return None
     if not term_is_current(role.get("terms")):
         return None
-    for name, keywords in CATEGORIES:
+    active = active_categories()
+    for key, _label, keywords in active:
         if any(k in t for k in keywords):
-            return name
+            return key
     # Upstream said Hardware but the title didn't match our vocabulary. Keep it, but
     # in the catch-all bucket — routing these into Silicon buried the real RTL roles
     # under Tesla's solar/thermal/HVAC hardware postings.
     if "hardware" in role.get("upstream_category", "").lower():
-        return HARDWARE_FALLBACK_CATEGORY
+        if any(k == HARDWARE_FALLBACK_KEY for k, _, _ in active):
+            return HARDWARE_FALLBACK_KEY
     return None
 
 def norm_title(s):
@@ -363,12 +486,12 @@ def cap_for_issue(by_cat):
     if total <= MAX_ROLES_PER_ISSUE:
         return by_cat, {r["id"] for v in by_cat.values() for r in v}, 0
     out, ids, budget = {}, set(), MAX_ROLES_PER_ISSUE
-    for name, _ in CATEGORIES:
+    for key, _label, _kw in active_categories():
         if budget <= 0:
             break
-        roles = _sorted(by_cat.get(name, []))[:budget]
+        roles = _sorted(by_cat.get(key, []))[:budget]
         if roles:
-            out[name] = roles
+            out[key] = roles
             ids |= {r["id"] for r in roles}
             budget -= len(roles)
     return out, ids, total - len(ids)
@@ -377,11 +500,11 @@ def build_digest_md(by_cat, overflow=0):
     now = datetime.now(timezone.utc).astimezone().strftime("%a %b %d, %I:%M %p")
     total = sum(len(v) for v in by_cat.values())
     lines = [f"**{total} new** · _{now}_", ""]
-    for name, _ in CATEGORIES:
-        roles = by_cat.get(name, [])
+    for key, label, _kw in active_categories():
+        roles = by_cat.get(key, [])
         if not roles:
             continue
-        lines += [f"## {name} ({len(roles)})", ""]
+        lines += [f"## {label} ({len(roles)})", ""]
         for r in _sorted(roles):
             star, loc = _line_parts(r)
             lines.append(f"- {star}**[{r['title']}]({r['url']})** — {r['company']} · {loc}")
@@ -399,11 +522,11 @@ def build_digest(by_cat):
     now = datetime.now(timezone.utc).astimezone().strftime("%a %b %d, %I:%M %p")
     total = sum(len(v) for v in by_cat.values())
     rows = []
-    for name, _ in CATEGORIES:
-        roles = by_cat.get(name, [])
+    for key, label, _kw in active_categories():
+        roles = by_cat.get(key, [])
         if not roles:
             continue
-        rows.append(f'<h2 style="margin:22px 0 6px;font-size:16px;">{name} '
+        rows.append(f'<h2 style="margin:22px 0 6px;font-size:16px;">{label} '
                     f'<span style="color:#888;font-weight:400;">({len(roles)})</span></h2>')
         for r in _sorted(roles):
             star, loc = _line_parts(r)
@@ -480,10 +603,12 @@ def main():
         commit_seen()
         return
 
+    srcs = active_sources()
     roles = []
-    for url in LISTING_SOURCES:
+    for url in srcs:
         roles += fetch_listing_repo(url)
-    print(f"pulled {len(roles)} active roles from {len(LISTING_SOURCES)} seed repo(s)")
+    print(f"pulled {len(roles)} active roles from {len(srcs)} seed repo(s) "
+          f"[role_type={CFG['role_type']}, location={CFG['location']['mode']}]")
 
     boards = load_boards()
     added = discover_boards(roles, boards)
@@ -505,9 +630,9 @@ def main():
 
     total = sum(len(v) for v in by_cat.values())
     print(f"{len(kept)} after dedupe -> {total} NEW relevant roles")
-    for name, _ in CATEGORIES:
-        if by_cat.get(name):
-            print(f"    {len(by_cat[name]):4d}  {name}")
+    for key, label, _kw in active_categories():
+        if by_cat.get(key):
+            print(f"    {len(by_cat[key]):4d}  {label}")
 
     if args.dry_run:
         open("digest.html", "w", encoding="utf-8").write(build_digest(by_cat))

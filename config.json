@@ -1,0 +1,36 @@
+{
+  "_comment": "Edit this file to tune the digest. Every key is optional — anything you delete falls back to the built-in default. You can edit it directly on github.com (pencil icon) and the next run picks it up.",
+
+  "_role_type": "intern | new_grad | both  — which sources to pull and which titles to accept",
+  "role_type": "intern",
+
+  "_location": "mode: us_only | any. Unrecognised locations are KEPT (better to over-include than silently drop a US role). extra_allow/extra_block take substrings, e.g. 'bay area' or 'belgrade'.",
+  "location": {
+    "mode": "us_only",
+    "extra_allow": [],
+    "extra_block": []
+  },
+
+  "_categories": "false hides a whole section from the digest",
+  "categories": {
+    "silicon": true,
+    "architecture": true,
+    "embedded": true,
+    "ml_systems": true,
+    "hardware_other": true,
+    "software_general": true
+  },
+
+  "_priority_companies": "cosmetic only — these get a star and sort to the top. Never excludes anyone.",
+  "priority_companies": [
+    "nvidia", "amd", "groq", "cerebras", "tenstorrent", "etched", "qualcomm",
+    "apple", "intel", "broadcom", "micron", "sambanova", "ambarella", "arm",
+    "google", "meta", "microsoft", "tesla", "anthropic", "openai", "waymo"
+  ],
+
+  "_extra_exclude_titles": "added to the built-in kill-list; matched at word start, so 'account' also kills 'accounting'",
+  "extra_exclude_titles": [],
+
+  "_max_roles_per_issue": "GitHub caps an issue body at 65536 chars. Overflow is left unseen and leads the next digest.",
+  "max_roles_per_issue": 300
+}
