@@ -593,6 +593,9 @@ def main():
     ap.add_argument("--commit-seen", action="store_true",
                     help="promote pending_ids.json into seen_ids.json after delivery succeeded")
     ap.add_argument("--no-ats", action="store_true", help="skip ATS polling (fast, repos only)")
+    ap.add_argument("--ignore-seen", action="store_true",
+                    help="show every matching role, not just unseen ones — for browsing the "
+                         "backlog or tuning config.json. Requires --dry-run.")
     ap.add_argument("--seed", action="store_true",
                     help="one-time backfill: write digest.html as a browsable backlog and "
                          "mark everything currently live as seen, so the next real digest "
@@ -602,6 +605,12 @@ def main():
     if args.commit_seen:
         commit_seen()
         return
+
+    # Guard rail: --ignore-seen against a delivery mode would re-send the entire
+    # backlog to your inbox. It's a browsing tool, so keep it pinned to --dry-run.
+    if args.ignore_seen and not args.dry_run:
+        sys.exit("--ignore-seen only makes sense with --dry-run "
+                 "(otherwise it would re-deliver every role you've already been shown)")
 
     srcs = active_sources()
     roles = []
@@ -619,7 +628,7 @@ def main():
         roles += poll_boards(boards)
 
     by_cat, fresh_ids = {}, set()
-    seen = load_seen()
+    seen = set() if args.ignore_seen else load_seen()
     kept = dedupe(roles)
     for r in kept:
         cat = classify(r)

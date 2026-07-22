@@ -88,14 +88,18 @@ marked as seen, so it leads the next digest rather than being lost.
 ## Running it yourself
 
 ```bash
-python intern_pipeline.py --dry-run   # writes digest.html, changes nothing
-python intern_pipeline.py --issue     # stages digest.md + pending_ids.json
-python intern_pipeline.py --seed      # mark everything currently live as seen
-python intern_pipeline.py --no-ats    # skip board polling (fast, repos only)
+python intern_pipeline.py --dry-run                # writes digest.html, changes nothing
+python intern_pipeline.py --dry-run --ignore-seen  # ...and includes roles already shown
+python intern_pipeline.py --issue                  # stages digest.md + pending_ids.json
+python intern_pipeline.py --seed                   # mark everything currently live as seen
+python intern_pipeline.py --no-ats                 # skip board polling (fast, repos only)
 ```
 
-`--dry-run` is the one to use when tuning `config.json`: it ignores the seen-list, so you
-see the full corpus under your new settings. Open the resulting `digest.html` in a browser.
+`--dry-run` still respects the seen-list, so on its own it only shows what's new. Add
+`--ignore-seen` to see **every** matching role — that's what you want for browsing the
+backlog or checking how a `config.json` change affects the full corpus. It's refused
+outside `--dry-run`, since re-delivering the whole backlog to your inbox is never intended.
+Open the resulting `digest.html` in a browser.
 
 ## State files (don't hand-edit)
 
