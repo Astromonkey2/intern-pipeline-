@@ -6,8 +6,8 @@ WHAT IT DOES
   1. Pulls structured listings from GitHub intern repos (vanshb03 / SimplifyJobs).
   2. Pulls directly from your TARGET companies' ATS boards (Ashby / Greenhouse / Lever).
   3. Tiers + filters roles: [1] target companies  [2] hardware/RTL  [3] general SWE.
-  4. Dedupes against roles it has already emailed you (seen_ids.json).
-  5. Emails you an HTML digest of ONLY new matches (or writes digest.html in --dry-run).
+  4. Dedupes against roles it has already shown you (seen_ids.json).
+  5. Delivers a digest of ONLY new matches, by email or as a GitHub Issue.
 
 DESIGN NOTE
   You do NOT scrape LinkedIn / Indeed / Handshake here — those block bots and forbid it.
@@ -15,8 +15,16 @@ DESIGN NOTE
   touches sources that publish machine-readable data.
 
 RUN
-  python3 intern_pipeline.py --dry-run     # writes digest.html, sends nothing
+  python3 intern_pipeline.py --dry-run     # writes digest.html, delivers nothing
   python3 intern_pipeline.py               # sends the email (needs SMTP env vars)
+  python3 intern_pipeline.py --issue       # writes digest.md + pending_ids.json
+  python3 intern_pipeline.py --commit-seen # folds pending_ids.json into seen_ids.json
+
+ISSUE MODE IS TWO-PHASE, ON PURPOSE
+  --issue only *stages* the new ids in pending_ids.json; it does not mark them seen.
+  The caller (the GitHub workflow) files the issue, and only once that succeeds calls
+  --commit-seen. If issue creation fails, nothing is marked seen and the next run
+  retries those roles instead of losing them forever.
 """
 
 import argparse, json, os, smtplib, ssl, sys, time, urllib.request
@@ -64,6 +72,7 @@ GITHUB_LISTINGS = [
 ]
 
 SEEN_FILE = "seen_ids.json"
+PENDING_FILE = "pending_ids.json"   # staged ids, promoted to SEEN_FILE only after delivery
 UA = {"User-Agent": "intern-pipeline/1.0 (personal job tracker)"}
 
 # ────────────────────────────── FETCHERS ──────────────────────────────
@@ -194,15 +203,48 @@ def build_digest(new_by_tier):
       <p style="color:#aaa;font-size:11px;margin-top:20px;">
       Boards say a role went live — you still apply on the company site. Log it in your tracker.</p></div>"""
 
+def build_digest_md(new_by_tier):
+    """Markdown twin of build_digest() — GitHub Issues strip inline styles, so the
+    HTML version renders as an unreadable wall there."""
+    now = datetime.now(timezone.utc).astimezone().strftime("%a %b %d, %I:%M %p")
+    lines = [f"_{now}_", ""]
+    for tier in (1, 2, 3):
+        roles = new_by_tier.get(tier, [])
+        if not roles:
+            continue
+        lines += [f"## {TIER_LABEL[tier]} ({len(roles)})", ""]
+        for r in sorted(roles, key=lambda x: x["company"].lower()):
+            loc = ", ".join([l for l in r["locations"] if l][:2]) or "—"
+            spons = f" · {r['sponsorship']}" if r.get("sponsorship") else ""
+            lines.append(f"- **[{r['title']}]({r['url']})** — {r['company']} · {loc}{spons}")
+        lines.append("")
+    if not any(new_by_tier.values()):
+        lines.append("No new roles this run.")
+    lines += ["---",
+              "Boards say a role went live — you still apply on the company site. "
+              "Log it in your tracker."]
+    return "\n".join(lines)
+
 # ────────────────────────────── STATE + SEND ──────────────────────────────
 
 def load_seen():
     if os.path.exists(SEEN_FILE):
-        return set(json.load(open(SEEN_FILE)))
+        return set(json.load(open(SEEN_FILE, encoding="utf-8")))
     return set()
 
 def save_seen(ids):
-    json.dump(sorted(ids), open(SEEN_FILE, "w"))
+    json.dump(sorted(ids), open(SEEN_FILE, "w", encoding="utf-8"))
+
+def commit_seen():
+    """Phase 2 of issue mode: promote staged ids once delivery is confirmed."""
+    if not os.path.exists(PENDING_FILE):
+        print("no pending_ids.json — nothing to promote")
+        return
+    pending = set(json.load(open(PENDING_FILE, encoding="utf-8")))
+    merged = load_seen() | pending
+    save_seen(merged)
+    os.remove(PENDING_FILE)
+    print(f"promoted {len(pending)} ids to seen ({len(merged)} total)")
 
 def send_email(html):
     host = os.environ["SMTP_HOST"]; port = int(os.environ.get("SMTP_PORT", 587))
@@ -220,8 +262,16 @@ def send_email(html):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true", help="write digest.html, send nothing")
+    ap.add_argument("--dry-run", action="store_true", help="write digest.html, deliver nothing")
+    ap.add_argument("--issue", action="store_true",
+                    help="stage digest.md + pending_ids.json for GitHub Issue delivery")
+    ap.add_argument("--commit-seen", action="store_true",
+                    help="promote pending_ids.json into seen_ids.json after delivery succeeded")
     args = ap.parse_args()
+
+    if args.commit_seen:
+        commit_seen()
+        return
 
     roles = []
     for url in GITHUB_LISTINGS:
@@ -246,11 +296,22 @@ def main():
     print(f"{total} NEW matching roles "
           f"(T1={len(new_by_tier.get(1,[]))} T2={len(new_by_tier.get(2,[]))} T3={len(new_by_tier.get(3,[]))})")
 
-    html = build_digest(new_by_tier)
     if args.dry_run:
-        open("digest.html", "w").write(html)
+        open("digest.html", "w", encoding="utf-8").write(build_digest(new_by_tier))
         print("wrote digest.html (dry run — nothing sent, seen-list untouched)")
         return
+
+    if args.issue:
+        if not total:
+            print("nothing new — no issue to file")
+            return
+        open("digest.md", "w", encoding="utf-8").write(build_digest_md(new_by_tier))
+        json.dump(sorted(fresh_ids), open(PENDING_FILE, "w", encoding="utf-8"))
+        print(f"staged digest.md + {len(fresh_ids)} pending ids "
+              f"(not yet seen — caller must confirm delivery with --commit-seen)")
+        return
+
+    html = build_digest(new_by_tier)
     if total:
         send_email(html)
         save_seen(seen | fresh_ids)

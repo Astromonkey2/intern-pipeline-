@@ -1,5 +1,8 @@
-# Dry-run output — regenerated every run, never worth versioning.
+# Regenerated every run, never worth versioning. seen_ids.json is NOT here —
+# it's committed on purpose, it's the dedupe state.
 digest.html
+digest.md
+pending_ids.json
 
 __pycache__/
 *.pyc

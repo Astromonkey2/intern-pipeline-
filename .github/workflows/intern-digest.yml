@@ -8,13 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Build the digest but send no email and record nothing as seen"
+        description: "Build the digest but file no issue and record nothing as seen"
         type: boolean
         default: false
 
-# Needed so the job can push the updated seen_ids.json back to the repo.
+# contents: write -> push the updated seen_ids.json. issues: write -> file the digest.
 permissions:
   contents: write
+  issues: write
 
 # Never let two runs race on seen_ids.json.
 concurrency:
@@ -34,13 +35,7 @@ jobs:
       # No pip install step: intern_pipeline.py is stdlib-only by design.
 
       - name: Run pipeline
-        env:
-          SMTP_HOST: smtp.gmail.com
-          SMTP_PORT: "587"
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          DIGEST_TO: ${{ secrets.DIGEST_TO }}
-        run: python intern_pipeline.py ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python intern_pipeline.py ${{ inputs.dry_run && '--dry-run' || '--issue' }}
 
       - name: Upload digest.html (dry run only)
         if: ${{ inputs.dry_run }}
@@ -50,15 +45,35 @@ jobs:
           path: digest.html
           if-no-files-found: warn
 
-      # Runners are ephemeral. Without this, seen_ids.json is lost every run and
-      # the next digest re-emails the entire backlog.
-      - name: Persist seen_ids.json
+      # digest.md only exists when there was something new, so this doubles as the
+      # "anything to report?" check.
+      - name: File digest as an issue
+        id: file_issue
         if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ ! -f seen_ids.json ]; then
-            echo "no seen_ids.json produced (nothing new was sent) — nothing to commit"
+          if [ ! -f digest.md ]; then
+            echo "no new roles this run — no issue filed"
             exit 0
           fi
+          count=$(python -c "import json;print(len(json.load(open('pending_ids.json'))))")
+          # gh issue create hard-fails on an unknown label; --force makes this idempotent.
+          gh label create digest --color 0E8A16 \
+            --description "Automated internship digest" --force
+          gh issue create \
+            --title "🗂️ Internship digest · $count new · $(date -u +'%b %d')" \
+            --body-file digest.md \
+            --label digest \
+            --repo "$GITHUB_REPOSITORY"
+          echo "filed=true" >> "$GITHUB_OUTPUT"
+
+      # Runs only if the issue was actually created. Without this the ids stay
+      # pending and the next run retries them, rather than losing them silently.
+      - name: Persist seen_ids.json
+        if: ${{ steps.file_issue.outputs.filed == 'true' }}
+        run: |
+          python intern_pipeline.py --commit-seen
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add seen_ids.json
