@@ -50,6 +50,15 @@ SOURCES_BY_ROLE_TYPE = {
     ],
 }
 
+# Listing repos that are README tables, not JSON — so they can't be parsed for roles.
+# We use them purely as a DIRECTORY of ATS boards: mine the apply-link tokens, then the
+# poller hits those boards directly for clean structured data. zapplyjobs skews toward
+# aerospace/energy/robotics employers the CS-first seeds miss. Add more freely; they only
+# ever widen board discovery, never filter it.
+MARKDOWN_SEEDS = [
+    "https://raw.githubusercontent.com/zapplyjobs/Internships-2027/main/README.md",
+]
+
 # ────────────────────────────── CONFIG FILE ──────────────────────────────
 # Everything a human would want to change lives in config.json, so it can be edited
 # from github.com without cloning. Missing keys fall back to these defaults.
@@ -345,25 +354,42 @@ ATS_DISPATCH = {"ashby": fetch_ashby, "greenhouse": fetch_greenhouse, "lever": f
 
 # ────────────────────────────── BOARD DISCOVERY ──────────────────────────────
 
+# Token stops at a path/query separator OR at any char that ends a URL in prose or
+# markdown (whitespace, quotes, ), ], >), so mining raw README text can't grab "acme)".
 ATS_URL_PATTERNS = {
-    "ashby":      r'(?:jobs\.)?ashbyhq\.com/([^/?#]+)',
-    "greenhouse": r'(?:boards|job-boards)\.greenhouse\.io/([^/?#]+)',
-    "lever":      r'jobs\.lever\.co/([^/?#]+)',
+    "ashby":      r'(?:jobs\.)?ashbyhq\.com/([^/?#\s")\'\]>]+)',
+    "greenhouse": r'(?:boards|job-boards)\.greenhouse\.io/([^/?#\s")\'\]>]+)',
+    "lever":      r'jobs\.lever\.co/([^/?#\s")\'\]>]+)',
 }
 
-def discover_boards(roles, known):
-    """Mine ATS tokens out of listing URLs. Case is preserved — Ashby tokens are
-    case-sensitive in the URL path — but membership is compared case-insensitively."""
+def _mine_boards(text, known):
+    """Add any ATS board tokens found in `text` (one URL or a whole README) to `known`,
+    returning how many were new. Case is preserved — Ashby tokens are case-sensitive in
+    the URL path — but membership is compared case-insensitively."""
     found = 0
-    for r in roles:
-        for kind, pat in ATS_URL_PATTERNS.items():
-            m = re.search(pat, r.get("url") or "")
-            if not m:
-                continue
-            token = m.group(1)
+    for kind, pat in ATS_URL_PATTERNS.items():
+        for token in re.findall(pat, text or ""):
             if token.lower() not in {t.lower() for t in known.get(kind, [])}:
                 known.setdefault(kind, []).append(token)
                 found += 1
+    return found
+
+def discover_boards(roles, known):
+    """Mine ATS tokens out of the listing roles' apply URLs."""
+    return sum(_mine_boards(r.get("url") or "", known) for r in roles)
+
+def discover_from_markdown(known):
+    """Mine ATS tokens out of README-table repos (MARKDOWN_SEEDS) that have no JSON.
+    The tables are never parsed — only their apply links matter, as a directory of
+    boards the poller then hits directly. A seed that expands reach, not a ceiling."""
+    found = 0
+    for url in MARKDOWN_SEEDS:
+        try:
+            text = _get(url, timeout=45).decode("utf-8", "replace")
+        except Exception as e:
+            print(f"  ! markdown seed failed ({url.split('/')[4]}): {e}", file=sys.stderr)
+            continue
+        found += _mine_boards(text, known)
     return found
 
 def load_boards():
@@ -641,6 +667,7 @@ def main():
 
     boards = load_boards()
     added = discover_boards(roles, boards)
+    added += discover_from_markdown(boards)
     save_boards(boards)
     print(f"known ATS boards: {sum(len(v) for v in boards.values())} (+{added} new this run)")
 

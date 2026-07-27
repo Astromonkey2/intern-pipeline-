@@ -17,9 +17,11 @@ Nothing here is specific to hardware except one file. To point it at *your* fiel
 
 1. **Fork** this repo (top-right on GitHub).
 2. **Pick an interest profile.** [`profiles/`](profiles/) has ready-made ones —
-   `software-generic.json`, `data-ml.json`, `hardware.json`. Copy the one you want over
-   [`profile.json`](profile.json) (open it, paste, commit — all on github.com). Or just
-   edit `profile.json` directly; see [Your interest profile](#your-interest-profile) below.
+   `software-generic.json`, `data-ml.json`, `hardware.json`, `engineering-broad.json`
+   (all disciplines: mechanical, aerospace, electrical, controls, industrial, …). Copy the
+   one you want over [`profile.json`](profile.json) (open it, paste, commit — all on
+   github.com). Or edit `profile.json` directly; see
+   [Your interest profile](#your-interest-profile) below.
 3. **Enable Actions** on your fork (the *Actions* tab → enable workflows). That's it — it
    runs on the daily schedule and files each digest as an Issue on your fork, which GitHub
    emails to you.
@@ -28,8 +30,12 @@ No secrets, no server, no mail setup. If `profile.json` is missing or broken, it
 to a broad "any software internship" profile, so a fresh fork still works out of the box.
 
 **Known limits (honest):** location matching is US-centric — see [`location`](#location)
-for how to widen or repoint it. The seed repos are general internship lists; swap them in
-`SOURCES_BY_ROLE_TYPE` if your field has better ones.
+for how to widen or repoint it. And the reach is only as broad as the boards it discovers:
+software, electrical, and computer-hardware roles are plentiful; mechanical, aerospace,
+controls, and industrial show up in smaller but real numbers; **chemical, civil, and
+materials are thin** — those employers mostly run Workday/custom portals this pipeline can't
+poll, not Ashby/Greenhouse/Lever. Add sources in `SOURCES_BY_ROLE_TYPE` (JSON repos) or
+`MARKDOWN_SEEDS` (README-table repos, used only to discover more boards) to widen it.
 
 ---
 

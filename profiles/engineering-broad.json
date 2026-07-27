@@ -1,0 +1,105 @@
+{
+  "_comment": "All-disciplines engineering intern — mechanical, aerospace, electrical, chemical, civil, materials, industrial, plus computer/software. The roles exist in the ATS pool; the seed repos alone are CS-heavy, so the breadth comes from board discovery. To use: copy this over ../profile.json. Ordered most-specific first; first keyword hit wins.",
+
+  "categories": [
+    {
+      "key": "aerospace",
+      "label": "🚀 Aerospace",
+      "keywords": [
+        "aerospace", "aeronaut", "astronaut", "avionics", "propulsion", "spacecraft",
+        "aircraft", "aerothermal", "guidance navigation", "flight test", "flight software"
+      ]
+    },
+    {
+      "key": "mechanical",
+      "label": "⚙️ Mechanical & Mechatronics",
+      "keywords": [
+        "mechanical", "mechatronic", "solidworks", "cad design", "tolerance", "hvac",
+        "thermal engineer", "fluid", "cfd", "product design engineer", "mechanism design"
+      ]
+    },
+    {
+      "key": "chemical",
+      "label": "🧪 Chemical & Process",
+      "keywords": [
+        "chemical engineer", "process engineer", "process development", "process design",
+        "formulation", "distillation", "reaction engineer", "catalysis", "bioprocess"
+      ]
+    },
+    {
+      "key": "civil",
+      "label": "🏗️ Civil & Structural",
+      "keywords": [
+        "civil engineer", "structural engineer", "geotechnical", "transportation engineer",
+        "environmental engineer", "water resources", "construction engineer"
+      ]
+    },
+    {
+      "key": "materials",
+      "label": "🔩 Materials",
+      "keywords": [
+        "materials engineer", "materials science", "metallurg", "material science",
+        "characterization", "composite", "corrosion"
+      ]
+    },
+    {
+      "key": "electrical",
+      "label": "🔌 Electrical & Power",
+      "keywords": [
+        "electrical engineer", "power electronics", "power systems", "analog", "circuit",
+        "pcb", "signal integrity", "rf ", "radio frequency", "hardware engineer"
+      ]
+    },
+    {
+      "key": "computer_hw",
+      "label": "🔬 Computer Hardware · RTL / Embedded",
+      "keywords": [
+        "rtl", "asic", "fpga", "verilog", "systemverilog", "vlsi", "silicon", "soc",
+        "embedded", "firmware", "device driver", "design verification", "semiconductor"
+      ]
+    },
+    {
+      "key": "controls_robotics",
+      "label": "🤖 Controls & Robotics",
+      "keywords": [
+        "controls engineer", "control systems", "robotic", "motion planning", "autonomy",
+        "gnc", "state estimation", "actuation"
+      ]
+    },
+    {
+      "key": "industrial",
+      "label": "🏭 Industrial & Manufacturing",
+      "keywords": [
+        "industrial engineer", "manufacturing", "process improvement", "operations research",
+        "supply chain engineer", "production engineer", "quality engineer", "lean"
+      ]
+    },
+    {
+      "key": "test_reliability",
+      "label": "🧰 Test · Validation · Reliability",
+      "keywords": [
+        "test engineer", "validation engineer", "reliability engineer", "failure analysis",
+        "systems engineer", "verification engineer", "qualification"
+      ]
+    },
+    {
+      "key": "software_general",
+      "label": "💻 Engineering Software",
+      "keywords": [
+        "software engineer", "embedded software", "simulation software", "cae", "modeling",
+        "machine learning", "data engineer"
+      ]
+    }
+  ],
+
+  "exclude_titles": [
+    "sales", "marketing", "recruit", "talent", "gtm", "go-to-market", "finance",
+    "accounting", "human resource", "hr", "legal", "counsel", "social work",
+    "nurse", "clinical", "teacher", "tutor", "customer success", "business develop",
+    "public relations", "people ops", "phd", "mba"
+  ],
+
+  "exclude_upstream_categories": ["quant", "quantitative finance", "product", "product management"],
+
+  "upstream_fallback": { "match": "hardware", "into": "electrical" }
+}
