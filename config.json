@@ -11,6 +11,9 @@
     "extra_block": []
   },
 
+  "_needs_sponsorship": "true = drop roles that explicitly won't sponsor, require U.S. citizenship, or need a security clearance/ITAR. Roles with no sponsorship info (most of them) are KEPT.",
+  "needs_sponsorship": true,
+
   "_categories": "false hides a whole section from the digest",
   "categories": {
     "silicon": true,

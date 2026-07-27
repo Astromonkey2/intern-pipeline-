@@ -68,6 +68,7 @@ CONFIG_FILE = "config.json"
 DEFAULT_CONFIG = {
     "role_type": "intern",
     "location": {"mode": "us_only", "extra_allow": [], "extra_block": []},
+    "needs_sponsorship": False,       # True = drop roles that won't sponsor / need citizenship
     "categories": {},                 # empty = all on
     "priority_companies": None,       # None = use the built-in list below
     "extra_exclude_titles": [],
@@ -259,6 +260,28 @@ def location_ok(locations):
         return False
     return True                           # unrecognised — keep
 
+# ────────────────────────────── SPONSORSHIP ──────────────────────────────
+# Same asymmetry as location: an explicit "won't sponsor / citizenship required / needs
+# clearance" signal DROPS the role; anything else — including the very common "Other" and
+# roles with no data at all — is KEPT. Only turns on when config sets needs_sponsorship.
+# Two signals: the repos' own `sponsorship` field (ATS postings don't carry one), plus a
+# title scan that also catches clearance/ITAR roles the field would miss.
+
+_NO_SPONSOR_RE = re.compile(
+    r'(?i)(u\.?s\.? ?citizen|citizenship (?:is )?required|must be a (?:u\.?s\.?|us) citizen|'
+    r'security clearance|clearance required|active clearance|ts/sci|top secret|'
+    r'polygraph|itar|export control|green card required)')
+
+def sponsorship_ok(role):
+    if not CFG["needs_sponsorship"]:
+        return True
+    field = (role.get("sponsorship") or "").lower()
+    if "does not offer" in field or "citizenship" in field:
+        return False
+    if _NO_SPONSOR_RE.search(role.get("title", "")):
+        return False
+    return True                           # "Other" / "Offers Sponsorship" / unknown — keep
+
 # ATS tokens are careers-portal slugs, not company names: "tenstorrentuniversity",
 # "asteraearlycareer2026". Strip the recruiting cruft so the digest reads properly
 # and so dedupe can match these against the repos' clean company names.
@@ -318,6 +341,7 @@ def fetch_listing_repo(url):
             "locations": d.get("locations") or [],
             "terms": d.get("terms") or ([d["season"]] if d.get("season") else []),
             "upstream_category": (d.get("category") or "").strip(),
+            "sponsorship": (d.get("sponsorship") or "").strip(),
             "date_posted": d.get("date_posted"),
             "src": "repo",
         })
@@ -448,6 +472,8 @@ def classify(role):
     if not role_type_ok(role["title"]):
         return None
     if not location_ok(role.get("locations")):
+        return None
+    if not sponsorship_ok(role):
         return None
     if _EXCLUDE_RE.search(t):
         return None

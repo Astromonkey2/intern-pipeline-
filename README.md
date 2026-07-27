@@ -101,6 +101,23 @@ Add your own substrings if something slips through:
 "extra_allow": ["ann arbor", "college station"]
 ```
 
+### `needs_sponsorship`
+
+```json
+"needs_sponsorship": true
+```
+
+For international students who need visa sponsorship. When `true`, drops any role that
+**explicitly** won't sponsor, requires U.S. citizenship, or needs a security
+clearance / ITAR access. Same asymmetry as `location`: only an explicit negative drops a
+role — the ~95% of postings with no sponsorship info (Simplify's `"Other"`, and every ATS
+board role, which carry no field at all) are **kept**, since a missing answer isn't a "no".
+
+Signal comes from two places: the source repos' own `sponsorship` field, plus a title scan
+that catches clearance/citizenship roles the field misses (e.g. defense contractors). It
+can't tell you a company *will* sponsor — no per-role data exists for that — only remove the
+ones that clearly won't. Default is `false`.
+
 ### `categories`
 
 Toggles for the sections defined in your [`profile.json`](#your-interest-profile) — the keys
