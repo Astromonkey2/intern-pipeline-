@@ -11,6 +11,55 @@ Runs at **13:00 UTC daily**. New roles → an Issue → GitHub emails you. Nothi
 
 ---
 
+## Use it for your own search (fork it)
+
+Nothing here is specific to hardware except one file. To point it at *your* field:
+
+1. **Fork** this repo (top-right on GitHub).
+2. **Pick an interest profile.** [`profiles/`](profiles/) has ready-made ones —
+   `software-generic.json`, `data-ml.json`, `hardware.json`. Copy the one you want over
+   [`profile.json`](profile.json) (open it, paste, commit — all on github.com). Or just
+   edit `profile.json` directly; see [Your interest profile](#your-interest-profile) below.
+3. **Enable Actions** on your fork (the *Actions* tab → enable workflows). That's it — it
+   runs on the daily schedule and files each digest as an Issue on your fork, which GitHub
+   emails to you.
+
+No secrets, no server, no mail setup. If `profile.json` is missing or broken, it falls back
+to a broad "any software internship" profile, so a fresh fork still works out of the box.
+
+**Known limits (honest):** location matching is US-centric — see [`location`](#location)
+for how to widen or repoint it. The seed repos are general internship lists; swap them in
+`SOURCES_BY_ROLE_TYPE` if your field has better ones.
+
+---
+
+## Your interest profile
+
+[`profile.json`](profile.json) is *what you're looking for* — the only file that decides
+relevance. It has three parts:
+
+**`categories`** — an ordered list of sections. The **first** category whose keywords appear
+in a job title wins, so list the most specific first. Each is:
+
+```json
+{ "key": "backend",
+  "label": "🔧 Backend / Distributed Systems",
+  "keywords": ["backend", "distributed", "microservice", "api"] }
+```
+
+`key` is the id that `config.json`'s on/off toggles use. `label` is the section header in the
+digest. `keywords` are matched case-insensitively anywhere in the title. Keep the last
+category a broad catch-all so decent roles aren't dropped just for odd phrasing.
+
+**`exclude_titles`** — a kill-list for noise that sneaks in under a good company (`"sales"`,
+`"recruiting"`). Matched at word start, so `"account"` also kills `"accounting"`.
+
+**`upstream_fallback`** *(optional, `null` to disable)* — if a source tags a role with a
+category you care about (e.g. `"Hardware"`) but the title has no keyword hit, file it in the
+`into` bucket instead of dropping it: `{ "match": "hardware", "into": "hardware_other" }`.
+
+---
+
 ## Customising it
 
 Edit [`config.json`](config.json) — **directly on github.com** (open the file, click the
@@ -48,7 +97,9 @@ Add your own substrings if something slips through:
 
 ### `categories`
 
-Set any to `false` to hide that section entirely:
+Toggles for the sections defined in your [`profile.json`](#your-interest-profile) — the keys
+here must match the category `key`s there. Any key you omit defaults to on. Set one to
+`false` to hide that section entirely. For the default hardware profile:
 
 ```json
 "categories": {

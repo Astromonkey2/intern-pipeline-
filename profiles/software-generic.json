@@ -1,0 +1,75 @@
+{
+  "_comment": "General software-engineering intern. Broad intake, split into the sections most CS students actually sort by. To use: copy this over ../profile.json. Categories are ordered — most specific first — so a role matches the tightest bucket it fits.",
+
+  "categories": [
+    {
+      "key": "ml_ai",
+      "label": "🤖 ML / AI",
+      "keywords": [
+        "machine learning", "deep learning", "artificial intelligence", "ml engineer",
+        "computer vision", "nlp", "natural language", "llm", "generative", "data scientist",
+        "research engineer", "applied scientist", "recommendation"
+      ]
+    },
+    {
+      "key": "backend",
+      "label": "🔧 Backend / Distributed Systems",
+      "keywords": [
+        "backend", "back end", "back-end", "distributed", "microservice", "api",
+        "server", "database", "scalability", "reliability", "sre", "golang", "rust engineer"
+      ]
+    },
+    {
+      "key": "frontend",
+      "label": "🎨 Frontend / Full-Stack",
+      "keywords": [
+        "frontend", "front end", "front-end", "full stack", "full-stack", "ui engineer",
+        "web developer", "react", "mobile", "ios", "android", "web application"
+      ]
+    },
+    {
+      "key": "infra",
+      "label": "☁️ Infra / Platform / DevOps",
+      "keywords": [
+        "infrastructure", "platform", "devops", "cloud", "kubernetes", "site reliability",
+        "developer experience", "build system", "observability", "networking"
+      ]
+    },
+    {
+      "key": "data",
+      "label": "📊 Data Engineering",
+      "keywords": [
+        "data engineer", "data engineering", "data platform", "etl", "pipeline",
+        "analytics engineer", "big data", "spark", "warehouse"
+      ]
+    },
+    {
+      "key": "security",
+      "label": "🔒 Security",
+      "keywords": [
+        "security", "cryptography", "appsec", "application security", "penetration",
+        "vulnerability", "threat", "detection engineer"
+      ]
+    },
+    {
+      "key": "software_general",
+      "label": "💻 Software (general)",
+      "keywords": [
+        "software", "developer", "engineer", "computer science", "programming",
+        "sde", "swe", "coding"
+      ]
+    }
+  ],
+
+  "exclude_titles": [
+    "sales", "marketing", "recruit", "talent", "gtm", "go-to-market", "finance",
+    "accounting", "human resource", "hr", "legal", "counsel", "social work",
+    "nurse", "clinical", "teacher", "tutor", "customer success", "business develop",
+    "supply chain", "communication", "public relations", "people ops",
+    "hardware engineer", "mechanical", "electrical engineer"
+  ],
+
+  "exclude_upstream_categories": [],
+
+  "upstream_fallback": { "match": "software", "into": "software_general" }
+}

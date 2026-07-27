@@ -1,0 +1,76 @@
+{
+  "_comment": "WHAT you're looking for. Copy an example from profiles/ over this file, or edit it directly (even on github.com). Categories are ordered — the FIRST one whose keywords appear in the title wins, so list the most specific first. The 'key' of each category is what config.json's on/off toggles refer to.",
+
+  "categories": [
+    {
+      "key": "silicon",
+      "label": "🔬 Silicon · RTL & Verification",
+      "keywords": [
+        "rtl", "asic", "fpga", "verilog", "systemverilog", "vlsi", "physical design",
+        "design verification", "dft", "synthesis", "static timing", "tapeout", "layout",
+        "analog", "mixed signal", "circuit", "semiconductor", "chip design", "silicon",
+        "pd intern", "dv intern", "sta intern"
+      ]
+    },
+    {
+      "key": "architecture",
+      "label": "🧠 Computer Architecture & Accelerators",
+      "keywords": [
+        "architecture", "architect", "microarchitect", "soc", "accelerator", "gpu",
+        "npu", "tpu", "cpu", "performance model", "chip simulation", "chipsim",
+        "memory subsystem", "interconnect", "computer engineering"
+      ]
+    },
+    {
+      "key": "embedded",
+      "label": "⚡ Embedded & Firmware",
+      "keywords": [
+        "embedded", "firmware", "bare metal", "rtos", "device driver", "driver",
+        "bsp", "board bring", "hardware software", "bringup", "bring-up"
+      ]
+    },
+    {
+      "key": "ml_systems",
+      "label": "🛠️ ML Systems · Compilers & Kernels",
+      "keywords": [
+        "compiler", "kernel", "cuda", "triton", "mlir", "llvm", "inference",
+        "runtime", "hpc", "high performance", "distributed training", "ml systems",
+        "systems software", "operating system", "performance engineer"
+      ]
+    },
+    {
+      "key": "hardware_other",
+      "label": "🔌 Other hardware & systems",
+      "keywords": [
+        "hardware engineer", "electrical engineer", "power electronics", "pcb",
+        "signal integrity", "test engineer", "validation", "thermal", "rf ",
+        "radio frequency", "sensor", "optical", "photonic", "failure analysis"
+      ]
+    },
+    {
+      "key": "software_general",
+      "label": "💻 Software & ML (general)",
+      "keywords": [
+        "software", "machine learning", "deep learning", "artificial intelligence",
+        "computer vision", "robotics", "backend", "platform", "infrastructure",
+        "systems", "data engineer", "research engineer", "autonomy"
+      ]
+    }
+  ],
+
+  "_exclude_titles": "kill-list, matched at word start ('account' also kills 'accounting'). Non-technical roles that slip in under a good company. 'phd'/'mba' are here because this profile targets an undergrad.",
+  "exclude_titles": [
+    "sales", "marketing", "recruit", "talent", "gtm", "go-to-market", "finance",
+    "accounting", "human resource", "hr", "legal", "counsel", "social work",
+    "nurse", "clinical", "teacher", "tutor", "customer success", "business develop",
+    "supply chain", "operations intern", "core ops",
+    "communication", "public relations", "people ops",
+    "phd", "mba", "medical"
+  ],
+
+  "_exclude_upstream_categories": "drop by the source repo's OWN category tag, regardless of title",
+  "exclude_upstream_categories": ["quant", "quantitative finance", "product", "product management"],
+
+  "_upstream_fallback": "optional; null to disable. If a role's upstream category contains 'match' but no keyword hit, file it under the 'into' category instead of dropping it.",
+  "upstream_fallback": { "match": "hardware", "into": "hardware_other" }
+}

@@ -1,0 +1,60 @@
+{
+  "_comment": "Data science / ML / analytics intern. To use: copy this over ../profile.json. Categories are ordered — most specific first.",
+
+  "categories": [
+    {
+      "key": "research",
+      "label": "🔬 ML / AI Research",
+      "keywords": [
+        "research", "research scientist", "research engineer", "applied scientist",
+        "deep learning", "reinforcement learning", "generative", "llm", "foundation model",
+        "computer vision", "nlp", "natural language", "speech"
+      ]
+    },
+    {
+      "key": "ml_engineering",
+      "label": "🤖 ML Engineering",
+      "keywords": [
+        "machine learning engineer", "ml engineer", "mlops", "model", "training",
+        "inference", "recommendation", "ranking", "personalization", "ml platform",
+        "feature engineering"
+      ]
+    },
+    {
+      "key": "data_science",
+      "label": "📈 Data Science",
+      "keywords": [
+        "data scientist", "data science", "quantitative", "experimentation",
+        "causal", "statistician", "statistics", "forecasting", "analytics scientist"
+      ]
+    },
+    {
+      "key": "data_engineering",
+      "label": "🛠️ Data Engineering",
+      "keywords": [
+        "data engineer", "data engineering", "data platform", "etl", "pipeline",
+        "spark", "warehouse", "big data", "analytics engineer", "dbt", "airflow"
+      ]
+    },
+    {
+      "key": "analytics",
+      "label": "📊 Analytics / BI",
+      "keywords": [
+        "analyst", "analytics", "business intelligence", "bi ", "reporting",
+        "dashboard", "insights", "sql", "tableau", "looker"
+      ]
+    }
+  ],
+
+  "exclude_titles": [
+    "sales", "marketing", "recruit", "talent", "gtm", "go-to-market",
+    "accounting", "human resource", "hr", "legal", "counsel", "social work",
+    "nurse", "clinical", "teacher", "tutor", "customer success", "supply chain",
+    "communication", "public relations", "people ops",
+    "hardware", "mechanical", "electrical", "firmware", "embedded"
+  ],
+
+  "exclude_upstream_categories": [],
+
+  "upstream_fallback": { "match": "data", "into": "analytics" }
+}

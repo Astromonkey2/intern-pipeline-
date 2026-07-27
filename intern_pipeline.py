@@ -89,44 +89,68 @@ def active_sources():
     keys = ["intern", "new_grad"] if rt == "both" else [rt]
     return [u for k in keys for u in SOURCES_BY_ROLE_TYPE.get(k, [])]
 
+# ────────────────────────────── PROFILE ──────────────────────────────
+# WHAT you're looking for — the interest model — lives in profile.json, so the tool
+# isn't hardwired to one person's field. To retarget it, copy an example from
+# profiles/ over profile.json (or edit profile.json directly, even on github.com).
+# If the file is absent or invalid, the generic software profile below is used, so a
+# fresh fork still produces a sensible digest.
+#
+# profile.json shape:
+#   {
+#     "categories": [                     # ordered; first keyword hit wins, so
+#       {"key": "...",                    #   put the most specific category first
+#        "label": "…emoji + title…",      # shown as the digest section header
+#        "keywords": ["...", ...]},       # matched case-insensitively in the title
+#       ...
+#     ],
+#     "exclude_titles": ["...", ...],           # title kill-list (word-start match)
+#     "exclude_upstream_categories": ["...", ...],  # drop by the source's own category
+#     "upstream_fallback":                       # optional; null to disable
+#       {"match": "hardware", "into": "<category key>"}
+#   }
+# The category "key"s here are what config.json's `categories` on/off toggles refer to.
+
+PROFILE_FILE = "profile.json"
+
+DEFAULT_PROFILE = {
+    "categories": [
+        {"key": "software_general", "label": "💻 Software & ML (general)", "keywords": [
+            "software", "machine learning", "data", "backend", "frontend", "full stack",
+            "developer", "engineer", "computer science",
+        ]},
+    ],
+    "exclude_titles": [
+        "sales", "marketing", "recruit", "talent", "gtm", "go-to-market", "finance",
+        "accounting", "human resource", "hr", "legal", "counsel", "customer success",
+    ],
+    "exclude_upstream_categories": [],
+    "upstream_fallback": None,
+}
+
+def load_profile():
+    prof = json.loads(json.dumps(DEFAULT_PROFILE))
+    if os.path.exists(PROFILE_FILE):
+        try:
+            user = json.load(open(PROFILE_FILE, encoding="utf-8"))
+        except Exception as e:
+            print(f"  ! profile.json is not valid JSON ({e}) — using the generic default",
+                  file=sys.stderr)
+            return prof
+        for k, v in user.items():
+            if k.startswith("_"):          # "_comment" keys are documentation
+                continue
+            prof[k] = v
+    return prof
+
+PROFILE = load_profile()
+
 # ────────────────────────────── RELEVANCE ──────────────────────────────
-# Categories are ordered: the first one whose keywords hit wins, so put the
-# most specific first. Retitle/reorder these to reshape the digest.
+# Categories are ordered: the first one whose keywords hit wins, so the profile puts
+# the most specific first. Keywords are matched case-insensitively against the title.
 
-CATEGORIES = [
-    ("silicon", "🔬 Silicon · RTL & Verification", [
-        "rtl", "asic", "fpga", "verilog", "systemverilog", "vlsi", "physical design",
-        "design verification", "dft", "synthesis", "static timing", "tapeout", "layout",
-        "analog", "mixed signal", "circuit", "semiconductor", "chip design", "silicon",
-        "pd intern", "dv intern", "sta intern",   # the abbreviations boards actually use
-    ]),
-    ("architecture", "🧠 Computer Architecture & Accelerators", [
-        "architecture", "architect", "microarchitect", "soc", "accelerator", "gpu",
-        "npu", "tpu", "cpu", "performance model", "chip simulation", "chipsim",
-        "memory subsystem", "interconnect", "computer engineering",
-    ]),
-    ("embedded", "⚡ Embedded & Firmware", [
-        "embedded", "firmware", "bare metal", "rtos", "device driver", "driver",
-        "bsp", "board bring", "hardware software", "bringup", "bring-up",
-    ]),
-    ("ml_systems", "🛠️ ML Systems · Compilers & Kernels", [
-        "compiler", "kernel", "cuda", "triton", "mlir", "llvm", "inference",
-        "runtime", "hpc", "high performance", "distributed training", "ml systems",
-        "systems software", "operating system", "performance engineer",
-    ]),
-    ("hardware_other", "🔌 Other hardware & systems", [
-        "hardware engineer", "electrical engineer", "power electronics", "pcb",
-        "signal integrity", "test engineer", "validation", "thermal", "rf ",
-        "radio frequency", "sensor", "optical", "photonic", "failure analysis",
-    ]),
-    ("software_general", "💻 Software & ML (general)", [
-        "software", "machine learning", "deep learning", "artificial intelligence",
-        "computer vision", "robotics", "backend", "platform", "infrastructure",
-        "systems", "data engineer", "research engineer", "autonomy",
-    ]),
-]
-
-HARDWARE_FALLBACK_KEY = "hardware_other"
+CATEGORIES = [(c["key"], c["label"], [k.lower() for k in c["keywords"]])
+              for c in PROFILE["categories"]]
 CAT_LABEL = {k: label for k, label, _ in CATEGORIES}
 
 def active_categories():
@@ -135,19 +159,11 @@ def active_categories():
     return [(k, lbl, kw) for k, lbl, kw in CATEGORIES if on.get(k, True)]
 
 # Upstream `category` values that are never relevant, whatever the title says.
-EXCLUDE_UPSTREAM_CATEGORIES = {"quant", "quantitative finance", "product", "product management"}
+EXCLUDE_UPSTREAM_CATEGORIES = {c.lower() for c in PROFILE["exclude_upstream_categories"]}
 
 # Title kill-list. Catches non-technical roles that slip in under a good category
-# (e.g. Etched's "GTM Intern" / "Talent Intern" arriving under a hardware company).
-EXCLUDE_TITLE = [
-    "sales", "marketing", "recruit", "talent", "gtm", "go-to-market", "finance",
-    "accounting", "human resource", "hr", "legal", "counsel", "social work",
-    "nurse", "clinical", "teacher", "tutor", "customer success", "business develop",
-    "supply chain", "operations intern", "core ops",
-    "communication", "public relations", "people ops",
-    "phd",              # Abhi is an undergrad — PhD-gated research roles aren't open to him
-    "mba", "medical",
-]
+# (e.g. a "GTM Intern" / "Talent Intern" arriving under a company you're tracking).
+EXCLUDE_TITLE = list(PROFILE["exclude_titles"])
 
 def _prefix_re(terms):
     """Match at a word start, but allow suffixes: 'recruit' catches recruiting AND
@@ -417,12 +433,16 @@ def classify(role):
     for key, _label, keywords in active:
         if any(k in t for k in keywords):
             return key
-    # Upstream said Hardware but the title didn't match our vocabulary. Keep it, but
-    # in the catch-all bucket — routing these into Silicon buried the real RTL roles
-    # under Tesla's solar/thermal/HVAC hardware postings.
-    if "hardware" in role.get("upstream_category", "").lower():
-        if any(k == HARDWARE_FALLBACK_KEY for k, _, _ in active):
-            return HARDWARE_FALLBACK_KEY
+    # Optional catch-all: the upstream source tagged this with a category we care about
+    # (e.g. "Hardware") but the title didn't match our keyword vocabulary. Route it into
+    # a designated bucket rather than dropping it — but only into the catch-all, never a
+    # specific one, so it doesn't bury the precise matches (e.g. real RTL roles getting
+    # lost under a company's solar/thermal/HVAC "hardware" postings).
+    fb = PROFILE.get("upstream_fallback")
+    if fb:
+        up = role.get("upstream_category", "").lower()
+        if fb["match"].lower() in up and any(k == fb["into"] for k, _, _ in active):
+            return fb["into"]
     return None
 
 def norm_title(s):
