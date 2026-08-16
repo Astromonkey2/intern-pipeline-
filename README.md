@@ -1,10 +1,8 @@
 # intern-pipeline
 
-**Once a day it checks hundreds of company job boards, picks out the new internships that match what you want, and posts the list. Nothing new that day? It stays quiet.**
+**Once a day it checks hundreds of company job boards, picks out the new internships that match what you want, and posts the list. easy peasy**
 
-It posts the list as a **GitHub Issue** on your own copy of this repo. GitHub then sends you an **email notification** about that new Issue — so the list lands in your inbox without this tool ever needing your email password or a mail server. (That email is just GitHub's normal notification; it's on by default for your own repos, and you can turn it off in your GitHub notification settings.)
-
-No spam, no repeats — it remembers what it already showed you.
+It posts the list as a **GitHub Issue** on your own copy of this repo. GitHub then sends you an **email notification** about that new Issue so the list lands in your inbox without this tool ever needing your email password or a mail server. (That email is just GitHub's normal notification; it's on by default for your own repos.)
 
 ---
 
@@ -20,7 +18,7 @@ No spam, no repeats — it remembers what it already showed you.
    Copy its contents into [`profile.json`](profile.json) (open `profile.json` on github.com → pencil icon → paste → *Commit*).
 3. **Turn on the daily run.** Go to the **Actions** tab and click the button to enable workflows.
 
-Done. It now runs every day at 1:00 PM UTC and posts new matches as an Issue — which GitHub emails to you.
+Done. It now runs every day at 1:00 PM UTC and posts new matches as an Issue..... which GitHub emails to you.
 
 > Not sure which profile? Skip step 2 — with no `profile.json` it defaults to general software internships.
 
@@ -64,9 +62,9 @@ Any setting you leave out just uses its default.
 
 ## Good to know
 
-- **It's honest about coverage.** Software, electrical, and computer-hardware jobs are plentiful. Mechanical, aerospace, and industrial show up in smaller numbers. Chemical, civil, and materials are thin — those companies mostly don't use the job boards this tool reads.
-- **It can't promise a company sponsors visas** — only hide the ones that clearly say they don't.
-- **Some files run themselves — don't edit them:** `seen_ids.json` (what you've already been shown), `ats_boards.json` (the list of job boards it found), `pending_ids.json` (temporary). The daily run updates these on its own.
+- ** coverage.** Software, electrical, and computer hardware jobs are plentiful(no one hires us tho :( ). Mechanical, aerospace, and industrial show up in smaller numbers. Chemical, civil, and materials are thin — those companies mostly don't use the job boards this tool reads.
+- **can't promise a company sponsors visas** — only hide the ones that clearly say they don't.
+- **Some files run themselves don't edit them:** `seen_ids.json` (what you've already been shown), `ats_boards.json` (the list of job boards it found), `pending_ids.json` (temporary). The daily run updates these on its own.
 
 ---
 
