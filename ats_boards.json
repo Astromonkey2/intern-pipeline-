@@ -49,6 +49,7 @@
   "bland",
   "blockhouse",
   "bloxd",
+  "bracket-bot",
   "bree",
   "browserbase",
   "centerfield",
@@ -65,6 +66,7 @@
   "constellationspace",
   "context",
   "contoro",
+  "coram-ai",
   "cowboyspace",
   "creatify",
   "ctgt",
@@ -192,6 +194,7 @@
   "pylon-labs",
   "quadrillion-labs",
   "qualified-health-pbc",
+  "qumulo",
   "ramielcapital",
   "ramp",
   "rapdev",
@@ -503,9 +506,11 @@
   "workshop",
   "worldquant",
   "worldsurfleague",
+  "wurljobs",
   "xairatherapeutics",
   "xantium",
-  "xpengmotors"
+  "xpengmotors",
+  "ziprecruiter"
  ],
  "lever": [
   "AIFund",
